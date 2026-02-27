@@ -1,0 +1,24 @@
+{
+  "name": "activityfinder-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/app.js",
+    "start": "node src/app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chrono-node": "^2.9.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fuse.js": "^7.1.0",
+    "ollama": "^0.6.3",
+    "postgres": "^3.4.8",
+    "wink-eng-lite-web-model": "^1.8.1",
+    "wink-nlp": "^2.4.0"
+  }
+}
