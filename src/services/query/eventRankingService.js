@@ -1,11 +1,20 @@
 import Fuse from "fuse.js";
 import { normalizeText } from "./textProcessing.js";
 
+/**
+ * Fuzzy ranking engine for events against activity terms and alias matches.
+ *
+ * @param {Object} deps
+ * @param {number} [deps.rankingThreshold]
+ */
 export function createEventRankingService({ rankingThreshold = 0.5 }) {
   if (!Number.isFinite(rankingThreshold) || rankingThreshold < 0 || rankingThreshold > 1) {
     throw new Error("Invalid rankingThreshold");
   }
 
+  /**
+   * Builds normalized ranking term sets from activity terms and alias mapping details.
+   */
   function buildRankingTerms(activityTerms, mappingDetails) {
     const baseTerms = Array.isArray(activityTerms) ? activityTerms : [];
     const aliasTerms = Array.isArray(mappingDetails)
@@ -31,11 +40,17 @@ export function createEventRankingService({ rankingThreshold = 0.5 }) {
     };
   }
 
+  /**
+   * Checks phrase-level exact containment on normalized title text.
+   */
   function hasExactNormalizedPhrase(normalizedTitle, normalizedTerm) {
     if (!normalizedTitle || !normalizedTerm) return false;
     return ` ${normalizedTitle} `.includes(` ${normalizedTerm} `);
   }
 
+  /**
+   * Produces ranked events plus ranking diagnostics used for logging and analysis.
+   */
   function rankEventsByActivityTerms(events, activityTerms, mappingDetails) {
     if (!Array.isArray(events) || events.length === 0) {
       return {

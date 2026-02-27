@@ -1,5 +1,13 @@
 import { buildAliasCandidates } from "./textProcessing.js";
 
+/**
+ * Resolves user activity terms into canonical activity ids using alias + name lookup.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.aliasResolver
+ * @param {Object} deps.queryRepository
+ * @param {Object} [deps.categoryDefaults]
+ */
 export function createActivityResolutionService({
   aliasResolver,
   queryRepository,
@@ -76,6 +84,11 @@ export function createActivityResolutionService({
     };
   }
 
+  /**
+   * Applies scope/category defaults (for example broad sports fallback activities).
+   *
+   * @param {string} scopeCategory
+   */
   async function resolveDefaultActivityIds(scopeCategory) {
     const defaultConfig = categoryDefaults[scopeCategory];
     if (!defaultConfig) {

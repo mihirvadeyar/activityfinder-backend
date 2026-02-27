@@ -1,6 +1,9 @@
 import "dotenv/config";
 import postgres from "postgres";
 
+/**
+ * Postgres client singleton used by repositories.
+ */
 const { PGHOST, PGDATABASE, PGUSER, PGPASSWORD, PGPORT } = process.env;
 
 if (!PGHOST || !PGDATABASE || !PGUSER || !PGPASSWORD) {

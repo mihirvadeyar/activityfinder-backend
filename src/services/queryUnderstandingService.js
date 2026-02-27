@@ -101,6 +101,13 @@ export function createQueryUnderstandingService({ llmClient, understandingTimeou
   };
 }
 
+/**
+ * Applies an upper bound to an async operation.
+ *
+ * @param {Promise<any>} promise
+ * @param {number} timeoutMs
+ * @param {string} timeoutCode
+ */
 function withTimeout(promise, timeoutMs, timeoutCode) {
   return Promise.race([
     promise,
@@ -110,6 +117,11 @@ function withTimeout(promise, timeoutMs, timeoutCode) {
   ]);
 }
 
+/**
+ * Heuristic fallback understanding used when LLM parsing fails/times out.
+ *
+ * @param {string} queryText
+ */
 function buildHeuristicUnderstanding(queryText) {
   const normalized = String(queryText || "").trim().toLowerCase();
   const words = normalized.split(/\s+/).filter(Boolean);
@@ -225,6 +237,12 @@ function buildHeuristicUnderstanding(queryText) {
   };
 }
 
+/**
+ * Reconciles model temporal output with chrono parser interpretation.
+ *
+ * @param {string} queryText
+ * @param {Object} understanding
+ */
 function reconcileTemporalUnderstandingWithChrono(queryText, understanding) {
   const now = new Date();
   const chronoResult = chrono.parse(String(queryText || ""), now, { forwardDate: true })[0];
@@ -269,6 +287,11 @@ function reconcileTemporalUnderstandingWithChrono(queryText, understanding) {
   };
 }
 
+/**
+ * Converts relative duration fields into approximate day count for comparison.
+ *
+ * @param {Object} understanding
+ */
 function estimateModelDurationDays(understanding) {
   if (understanding?.time_range_type !== "relative") return null;
   const value = Number(understanding?.duration_value);
@@ -284,6 +307,11 @@ function estimateModelDurationDays(understanding) {
   return Math.max(1, Math.ceil(value * daysPerUnit * modifierFactor));
 }
 
+/**
+ * Normalizes raw LLM JSON into the canonical understanding shape.
+ *
+ * @param {Object} raw
+ */
 function normalizeUnderstanding(raw) {
   const activity_terms = Array.isArray(raw?.activity_terms)
     ? raw.activity_terms

@@ -1,5 +1,8 @@
 import "dotenv/config";
 
+/**
+ * Centralized runtime configuration from environment variables.
+ */
 export const config = {
   port: Number(process.env.PORT || 3000),
   adminToken: process.env.ADMIN_TOKEN || "devsecret",

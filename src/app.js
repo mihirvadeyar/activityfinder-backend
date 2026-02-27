@@ -15,6 +15,10 @@ import { createQueryController } from "./controllers/queryController.js";
 import { createRequireAdmin } from "./middleware/requireAdmin.js";
 import { registerRoutes } from "./routes/registerRoutes.js";
 
+/**
+ * Application bootstrap: wires dependencies, registers routes, refreshes alias cache,
+ * and starts the HTTP server.
+ */
 const app = express();
 app.use(express.json());
 

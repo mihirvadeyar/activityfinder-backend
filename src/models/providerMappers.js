@@ -4,6 +4,11 @@ import { createEvent } from "./event.js";
 
 const SUPPORTED_ACTIVITY_CATEGORIES = new Set(["Sports"]);
 
+/**
+ * Decodes a subset of HTML entities commonly found in provider payloads.
+ *
+ * @param {string} value
+ */
 function decodeHtmlEntities(value) {
   if (!value) return value;
 
@@ -34,6 +39,11 @@ function decodeHtmlEntities(value) {
   });
 }
 
+/**
+ * Converts HTML-rich text to readable plain text with normalized whitespace.
+ *
+ * @param {string|null|undefined} rawValue
+ */
 function normalizeHtmlToPlainText(rawValue) {
   if (rawValue === null || rawValue === undefined) return null;
 
@@ -63,6 +73,11 @@ function normalizeHtmlToPlainText(rawValue) {
   return normalized || null;
 }
 
+/**
+ * Coerces numeric-like values to integer ids, returning null for invalid values.
+ *
+ * @param {any} value
+ */
 function toBigIntOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
@@ -70,12 +85,22 @@ function toBigIntOrNull(value) {
   return Math.trunc(n);
 }
 
+/**
+ * Parses date-like values into Date objects, returning null if invalid.
+ *
+ * @param {any} value
+ */
 function toDateOrNull(value) {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Extracts category + activity name from provider activity title format.
+ *
+ * @param {string} rawName
+ */
 function parseActivityName(rawName) {
   const name = String(rawName || "").trim();
   if (!name) return null;
@@ -97,6 +122,11 @@ function parseActivityName(rawName) {
   };
 }
 
+/**
+ * Maps raw provider activity payload into internal Activity model.
+ *
+ * @param {object} raw
+ */
 export function normalizeActivity(raw) {
   const externalId = toBigIntOrNull(raw?.calendar_id);
   const parsedActivity = parseActivityName(raw?.name);
@@ -112,6 +142,11 @@ export function normalizeActivity(raw) {
   });
 }
 
+/**
+ * Maps raw provider/filter centre payload into internal Centre model.
+ *
+ * @param {object} raw
+ */
 export function normalizeCentre(raw) {
   const externalId = toBigIntOrNull(raw?.center_id ?? raw?.centre_id ?? raw?.id);
 
@@ -130,6 +165,12 @@ export function normalizeCentre(raw) {
   });
 }
 
+/**
+ * Merges lightweight filter centre row with richer centre details row.
+ *
+ * @param {object} filterCentreRaw
+ * @param {object|null} centreDetailsRaw
+ */
 export function mergeFilterCentreWithDetails(filterCentreRaw, centreDetailsRaw) {
   return {
     id: filterCentreRaw?.id ?? centreDetailsRaw?.id,
@@ -144,6 +185,13 @@ export function mergeFilterCentreWithDetails(filterCentreRaw, centreDetailsRaw) 
   };
 }
 
+/**
+ * Maps raw provider event payload into internal Event model.
+ *
+ * @param {object} raw
+ * @param {number} fallbackActivityExternalId
+ * @param {number} fallbackCentreExternalId
+ */
 export function normalizeEvent(raw, fallbackActivityExternalId, fallbackCentreExternalId) {
   const externalId = toBigIntOrNull(raw?.event_item_id);
   const externalActivityId = toBigIntOrNull(raw?.calendar_id) || fallbackActivityExternalId;
@@ -172,6 +220,12 @@ export function normalizeEvent(raw, fallbackActivityExternalId, fallbackCentreEx
   });
 }
 
+/**
+ * Splits array into fixed-size chunks.
+ *
+ * @param {any[]} values
+ * @param {number} size
+ */
 export function chunkArray(values, size) {
   const safeSize = Math.max(1, Number(size) || 1);
   const chunks = [];
@@ -181,10 +235,21 @@ export function chunkArray(values, size) {
   return chunks;
 }
 
+/**
+ * Extracts external centre id from provider center-event group.
+ *
+ * @param {object} rawCenterEvent
+ */
 export function toExternalCentreId(rawCenterEvent) {
   return toBigIntOrNull(rawCenterEvent?.center_id);
 }
 
+/**
+ * Derives human-readable centre name from provider center-event group.
+ *
+ * @param {object} rawCenterEvent
+ * @param {number} fallbackExternalCentreId
+ */
 export function toCentreName(rawCenterEvent, fallbackExternalCentreId) {
   return String(rawCenterEvent?.center_name || `Centre ${fallbackExternalCentreId}`);
 }

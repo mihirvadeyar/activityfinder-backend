@@ -1,3 +1,10 @@
+/**
+ * Persistence layer for ingestion writes and maintenance tasks.
+ *
+ * @param {Object} deps
+ * @param {import("postgres").Sql} deps.sql
+ * @param {string} deps.provider
+ */
 export function createIngestionRepository({ sql, provider }) {
   return {
     /**
@@ -108,6 +115,12 @@ export function createIngestionRepository({ sql, provider }) {
       `;
     },
 
+    /**
+     * Deletes provider events outside the active ingestion window.
+     *
+     * @param {string} nowIso
+     * @param {string} windowEndIso
+     */
     async cleanupEventsOutsideWindow(nowIso, windowEndIso) {
       return sql`
         delete from event
@@ -119,6 +132,9 @@ export function createIngestionRepository({ sql, provider }) {
       `;
     },
 
+    /**
+     * Returns current DB timestamp for health checks.
+     */
     async getHealthDbTime() {
       const [row] = await sql`select now() as now;`;
       return row.now;

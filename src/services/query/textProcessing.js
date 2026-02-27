@@ -4,6 +4,11 @@ import model from "wink-eng-lite-web-model";
 const nlp = winkNLP(model);
 const its = nlp.its;
 
+/**
+ * Normalizes text for search/ranking by tokenizing, lowercasing, and stripping punctuation.
+ *
+ * @param {string} value
+ */
 export function normalizeText(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -17,6 +22,11 @@ export function normalizeText(value) {
     .join(" ");
 }
 
+/**
+ * Builds alias candidates (full phrase + n-grams + content tokens) from raw user term.
+ *
+ * @param {string} rawTerm
+ */
 export function buildAliasCandidates(rawTerm) {
   const normalized = normalizeText(rawTerm);
   if (!normalized) return [];

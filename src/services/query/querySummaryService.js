@@ -1,8 +1,17 @@
+/**
+ * Builds summary generation service for producing natural language from ranked events.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.llmClient
+ */
 export function createQuerySummaryService({ llmClient }) {
   if (!llmClient || typeof llmClient.chat !== "function") {
     throw new Error("Missing llmClient implementation with chat()");
   }
 
+  /**
+   * Buckets timestamp into one-hour slot label.
+   */
   function getHourBucketLabel(isoDateTime) {
     const date = new Date(isoDateTime);
     if (Number.isNaN(date.getTime())) return null;
@@ -12,6 +21,9 @@ export function createQuerySummaryService({ llmClient }) {
     return `${startHourLabel}-${endHourLabel}`;
   }
 
+  /**
+   * Returns top-N labels by frequency.
+   */
   function getTopBucketLabels(values, limit) {
     const counts = new Map();
     values.forEach((value) => {
@@ -28,6 +40,9 @@ export function createQuerySummaryService({ llmClient }) {
       .map(([value]) => value);
   }
 
+  /**
+   * Computes compact statistical signals used to guide summary generation.
+   */
   function buildSummarySignals(events) {
     const topTimeSlots = getTopBucketLabels(
       events.map((event) => getHourBucketLabel(event.starts_at)),
@@ -50,6 +65,9 @@ export function createQuerySummaryService({ llmClient }) {
     };
   }
 
+  /**
+   * Generates the user-facing summary with retry/fallback behavior.
+   */
   async function generateEventsSummary({ query, events, understanding, window }) {
     const signals = buildSummarySignals(events);
     const summaryEventContextLimit = 20;
@@ -147,6 +165,9 @@ export function createQuerySummaryService({ llmClient }) {
   };
 }
 
+/**
+ * Secondary lower-context retry for summary generation.
+ */
 async function generateSummaryRetry({ llmClient, query, signals, eventsForSummary }) {
   try {
     const response = await llmClient.chat({
@@ -179,6 +200,9 @@ async function generateSummaryRetry({ llmClient, query, signals, eventsForSummar
   }
 }
 
+/**
+ * Deterministic fallback summary used when model output is unavailable.
+ */
 function buildDeterministicSummary({ query, signals, events }) {
   if (!signals.total_events) {
     return `No matching events were found for "${query}". Try a broader date range or different activity.`;

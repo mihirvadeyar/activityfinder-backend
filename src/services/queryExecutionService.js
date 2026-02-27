@@ -3,6 +3,21 @@ import { createEventRankingService } from "./query/eventRankingService.js";
 import { createQuerySummaryService } from "./query/querySummaryService.js";
 import { createTimeWindowResolver } from "./query/timeWindowResolver.js";
 
+/**
+ * Query orchestration service: understanding -> activity resolution -> time window ->
+ * candidate fetch -> ranking -> NL summary.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.summaryLlmClient
+ * @param {Object} deps.llmClient
+ * @param {Object} deps.queryRepository
+ * @param {Object} deps.aliasResolver
+ * @param {Object} deps.queryUnderstandingService
+ * @param {Object} [deps.categoryDefaults]
+ * @param {number} [deps.defaultWindowDays]
+ * @param {number} [deps.candidateLimit]
+ * @param {number} [deps.rankingThreshold]
+ */
 export function createQueryExecutionService({
   summaryLlmClient,
   llmClient,
@@ -31,6 +46,11 @@ export function createQueryExecutionService({
   const timeWindowResolver = createTimeWindowResolver({ defaultWindowDays });
 
   return {
+    /**
+     * Executes an end-to-end user query against indexed activities/events.
+     *
+     * @param {string} queryText
+     */
     async executeQuery(queryText) {
       const startedAtMs = Date.now();
       const normalizedQuery = String(queryText || "").trim();

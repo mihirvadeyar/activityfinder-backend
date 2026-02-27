@@ -1,7 +1,18 @@
+/**
+ * Normalizes alias text for deterministic map lookup.
+ *
+ * @param {string} value
+ */
 function normalizeAliasText(value) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/**
+ * Builds in-memory alias resolver backed by DB mappings.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.queryRepository
+ */
 export function createAliasResolverService({ queryRepository }) {
   const aliasToActivityIds = new Map();
   const activityNameById = new Map();
@@ -9,6 +20,9 @@ export function createAliasResolverService({ queryRepository }) {
   let mappingCount = 0;
 
   return {
+    /**
+     * Reloads alias mappings from DB into local in-memory indexes.
+     */
     async refresh() {
       const rows = await queryRepository.listActiveAliasMappings();
 
@@ -42,6 +56,11 @@ export function createAliasResolverService({ queryRepository }) {
       };
     },
 
+    /**
+     * Resolves a raw alias string into matching activities.
+     *
+     * @param {string} rawAlias
+     */
     resolveActivitiesByAlias(rawAlias) {
       const normalizedAlias = normalizeAliasText(rawAlias);
       if (!normalizedAlias) {
@@ -65,6 +84,9 @@ export function createAliasResolverService({ queryRepository }) {
       };
     },
 
+    /**
+     * Returns resolver cache stats for diagnostics/health endpoints.
+     */
     getStats() {
       return {
         aliasesLoaded: aliasToActivityIds.size,

@@ -11,6 +11,16 @@ import { createCentre } from "../models/centre.js";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * Creates ingestion orchestrator that pulls provider data and upserts into DB.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.providerClient
+ * @param {Object} deps.repository
+ * @param {string} deps.provider
+ * @param {number} deps.windowDays
+ * @param {number} deps.centerChunkSize
+ */
 export function createIngestionService({
   providerClient,
   repository,
@@ -18,6 +28,11 @@ export function createIngestionService({
   windowDays,
   centerChunkSize,
 }) {
+  /**
+   * Logs compact ingestion completion metrics.
+   *
+   * @param {Object} summary
+   */
   function logIngestionSummary(summary) {
     console.info("[ingestion] completed", {
       provider: summary.provider,
@@ -34,6 +49,9 @@ export function createIngestionService({
   }
 
   return {
+    /**
+     * Executes one full ingestion cycle.
+     */
     async runIngestion() {
       const now = new Date();
       const windowEnd = new Date(now.getTime() + windowDays * MS_IN_DAY);

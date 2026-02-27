@@ -1,3 +1,8 @@
+/**
+ * HTTP client for external activity provider APIs.
+ *
+ * @param {Object} options
+ */
 export function createProviderClient(options) {
   const {
     apiBaseUrl,
@@ -13,6 +18,15 @@ export function createProviderClient(options) {
     throw new Error("Missing PROVIDER_API_BASE_URL in .env");
   }
 
+  /**
+   * Executes provider API requests and validates JSON responses.
+   *
+   * @param {Object} args
+   * @param {string} args.method
+   * @param {string} args.path
+   * @param {Record<string, any>} [args.query]
+   * @param {object|null} [args.body]
+   */
   async function requestJson({ method, path, query = {}, body = null }) {
     const normalizedBase = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
     const normalizedPath = String(path || "").replace(/^\/+/, "");
@@ -62,10 +76,18 @@ export function createProviderClient(options) {
   }
 
   return {
+    /**
+     * Fetches calendar/activity records from provider.
+     */
     async fetchActivities() {
       const payload = await requestJson({ method: "GET", path: activitiesPath });
       return Array.isArray(payload?.body?.calendars) ? payload.body.calendars : [];
     },
+    /**
+     * Fetches available filters (centres + activities) for an activity.
+     *
+     * @param {number|string} activityExternalId
+     */
     async fetchFiltersByActivity(activityExternalId) {
       const payload = await requestJson({
         method: "POST",
@@ -77,6 +99,11 @@ export function createProviderClient(options) {
         activities: Array.isArray(payload?.body?.activity) ? payload.body.activity : [],
       };
     },
+    /**
+     * Fetches detailed centre metadata for the provided centre ids.
+     *
+     * @param {Array<number|string>} centreExternalIds
+     */
     async fetchCentreDetailsByCentres(centreExternalIds) {
       const centerIds = (centreExternalIds || [])
         .map((id) => Number(id))
@@ -93,6 +120,12 @@ export function createProviderClient(options) {
       });
       return Array.isArray(payload?.body?.center_details) ? payload.body.center_details : [];
     },
+    /**
+     * Fetches event groups for one activity across selected centres.
+     *
+     * @param {number|string} activityExternalId
+     * @param {Array<number|string>} centreExternalIds
+     */
     async fetchEventsByActivityAndCentres(activityExternalId, centreExternalIds) {
       const payload = await requestJson({
         method: "POST",
@@ -104,6 +137,12 @@ export function createProviderClient(options) {
       });
       return Array.isArray(payload?.body?.center_events) ? payload.body.center_events : [];
     },
+    /**
+     * Fetches details for a specific activity item instance.
+     *
+     * @param {number|string} activityItemId
+     * @param {string|null} selectedDate
+     */
     async fetchActivityDetails(activityItemId, selectedDate) {
       const path = `${activityDetailsPathPrefix}/${activityItemId}`;
       const query = selectedDate ? { selected_date: selectedDate } : {};

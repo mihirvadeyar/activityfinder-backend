@@ -1,5 +1,14 @@
+/**
+ * Creates admin-only controller endpoints.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.ingestionService
+ */
 export function createAdminController({ ingestionService }) {
   return {
+    /**
+     * Triggers ingestion pipeline and returns duration + summary.
+     */
     ingest: async (_req, res) => {
       const started = Date.now();
       try {

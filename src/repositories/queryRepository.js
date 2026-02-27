@@ -1,5 +1,15 @@
+/**
+ * Read/query repository used by query understanding and execution services.
+ *
+ * @param {Object} deps
+ * @param {import("postgres").Sql} deps.sql
+ * @param {string} deps.provider
+ */
 export function createQueryRepository({ sql, provider }) {
   return {
+    /**
+     * Returns active alias->activity mappings for in-memory resolver cache.
+     */
     async listActiveAliasMappings() {
       return sql`
         select
@@ -13,6 +23,12 @@ export function createQueryRepository({ sql, provider }) {
       `;
     },
 
+    /**
+     * Resolves activity ids by exact normalized names scoped to category.
+     *
+     * @param {string[]} names
+     * @param {string} category
+     */
     async findActivityIdsByNamesAndCategory(names, category) {
       const normalizedNames = Array.isArray(names)
         ? names.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean)
@@ -28,6 +44,11 @@ export function createQueryRepository({ sql, provider }) {
       `;
     },
 
+    /**
+     * Resolves activities by exact normalized names (all categories).
+     *
+     * @param {string[]} names
+     */
     async findActivitiesByNames(names) {
       const normalizedNames = Array.isArray(names)
         ? names.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean)
@@ -42,6 +63,15 @@ export function createQueryRepository({ sql, provider }) {
       `;
     },
 
+    /**
+     * Returns upcoming events by activity ids in the requested time window.
+     *
+     * @param {Object} params
+     * @param {number[]} params.activityIds
+     * @param {string} params.windowStartIso
+     * @param {string} params.windowEndIso
+     * @param {number} [params.limit]
+     */
     async listEventsByActivityIdsWithinWindow({
       activityIds,
       windowStartIso,

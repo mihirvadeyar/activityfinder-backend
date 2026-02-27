@@ -2,11 +2,20 @@ import * as chrono from "chrono-node";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * Resolves query temporal understanding/hints into concrete fetch window boundaries.
+ *
+ * @param {Object} deps
+ * @param {number} [deps.defaultWindowDays]
+ */
 export function createTimeWindowResolver({ defaultWindowDays = 30 }) {
   if (!Number.isFinite(defaultWindowDays) || defaultWindowDays <= 0) {
     throw new Error("Invalid defaultWindowDays");
   }
 
+  /**
+   * Converts structured understanding fields into an explicit window when possible.
+   */
   function toWindowFromStructuredTime(understanding, now) {
     const rangeType = understanding?.time_range_type;
 
@@ -58,6 +67,9 @@ export function createTimeWindowResolver({ defaultWindowDays = 30 }) {
     return null;
   }
 
+  /**
+   * Resolves fallback window strategies from free-form time hints and defaults.
+   */
   function resolveWindowFromTimeHint(timeHint, understanding) {
     const now = new Date();
     const structuredWindow = toWindowFromStructuredTime(understanding, now);

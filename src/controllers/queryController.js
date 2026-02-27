@@ -1,9 +1,18 @@
+/**
+ * Creates query endpoint controller.
+ *
+ * @param {Object} deps
+ * @param {Object} deps.queryExecutionService
+ */
 export function createQueryController({ queryExecutionService }) {
   if (!queryExecutionService || typeof queryExecutionService.executeQuery !== "function") {
     throw new Error("Missing queryExecutionService");
   }
 
   return {
+    /**
+     * Executes semantic event query flow and returns structured response.
+     */
     query: async (req, res) => {
       const started = Date.now();
 
