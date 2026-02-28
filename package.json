@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/app.js",
-    "start": "node src/app.js"
+    "start": "node src/app.js",
+    "prepare:temporal-sft": "node scripts/prepareTemporalSFT.js",
+    "predict:temporal-test": "node scripts/predictTemporalSFT.js --input data/temporal/test.jsonl --output data/temporal/predictions.test.jsonl",
+    "eval:temporal-test": "node scripts/evalTemporalPredictions.js --gold data/temporal/test.jsonl --pred data/temporal/predictions.test.jsonl"
   },
   "keywords": [],
   "author": "",
