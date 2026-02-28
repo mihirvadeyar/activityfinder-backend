@@ -10,6 +10,7 @@ Example:
 """
 
 import argparse
+import inspect
 import os
 
 import torch
@@ -84,33 +85,53 @@ def main():
     bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
     fp16 = torch.cuda.is_available() and not bf16
 
-    sft_config = SFTConfig(
-        output_dir=args.output_dir,
-        num_train_epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
-        gradient_accumulation_steps=args.grad_accum,
-        max_seq_length=args.max_seq_length,
-        eval_strategy="steps",
-        eval_steps=args.eval_steps,
-        save_steps=args.save_steps,
-        save_total_limit=2,
-        logging_steps=args.logging_steps,
-        bf16=bf16,
-        fp16=fp16,
-        packing=False,
-        report_to="none",
-    )
+    sft_sig = inspect.signature(SFTConfig.__init__)
+    sft_params = set(sft_sig.parameters.keys())
 
-    trainer = SFTTrainer(
-        model=model,
-        args=sft_config,
-        train_dataset=train_ds,
-        eval_dataset=val_ds,
-        processing_class=tokenizer,
-        peft_config=peft_config,
-    )
+    sft_kwargs = {
+        "output_dir": args.output_dir,
+        "num_train_epochs": args.epochs,
+        "learning_rate": args.learning_rate,
+        "per_device_train_batch_size": args.batch_size,
+        "per_device_eval_batch_size": args.batch_size,
+        "gradient_accumulation_steps": args.grad_accum,
+        "eval_steps": args.eval_steps,
+        "save_steps": args.save_steps,
+        "save_total_limit": 2,
+        "logging_steps": args.logging_steps,
+        "bf16": bf16,
+        "fp16": fp16,
+        "packing": False,
+        "report_to": "none",
+    }
+
+    if "max_seq_length" in sft_params:
+        sft_kwargs["max_seq_length"] = args.max_seq_length
+    elif "max_length" in sft_params:
+        sft_kwargs["max_length"] = args.max_seq_length
+
+    if "eval_strategy" in sft_params:
+        sft_kwargs["eval_strategy"] = "steps"
+    elif "evaluation_strategy" in sft_params:
+        sft_kwargs["evaluation_strategy"] = "steps"
+
+    sft_config = SFTConfig(**sft_kwargs)
+
+    trainer_sig = inspect.signature(SFTTrainer.__init__)
+    trainer_params = set(trainer_sig.parameters.keys())
+    trainer_kwargs = {
+        "model": model,
+        "args": sft_config,
+        "train_dataset": train_ds,
+        "eval_dataset": val_ds,
+        "peft_config": peft_config,
+    }
+    if "processing_class" in trainer_params:
+        trainer_kwargs["processing_class"] = tokenizer
+    elif "tokenizer" in trainer_params:
+        trainer_kwargs["tokenizer"] = tokenizer
+
+    trainer = SFTTrainer(**trainer_kwargs)
 
     trainer.train()
     trainer.save_model(args.output_dir)
