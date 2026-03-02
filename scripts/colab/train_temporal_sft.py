@@ -38,6 +38,15 @@ def parse_args():
     parser.add_argument("--lora-r", type=int, default=16)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
+    parser.add_argument(
+        "--precision",
+        choices=["auto", "fp16", "bf16", "fp32"],
+        default="auto",
+        help=(
+            "Mixed precision mode. "
+            "'auto' defaults to fp16 on CUDA for Colab stability; use bf16 only when explicitly desired."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -52,8 +61,31 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    supports_bf16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
-    compute_dtype = torch.bfloat16 if supports_bf16 else torch.float16
+    cuda_available = torch.cuda.is_available()
+    supports_bf16 = cuda_available and torch.cuda.get_device_capability(0)[0] >= 8
+
+    if args.precision == "fp32":
+        compute_dtype = torch.float32
+        bf16 = False
+        fp16 = False
+    elif args.precision == "bf16":
+        compute_dtype = torch.bfloat16
+        bf16 = True
+        fp16 = False
+    elif args.precision == "fp16":
+        compute_dtype = torch.float16
+        bf16 = False
+        fp16 = cuda_available
+    else:
+        # Default to fp16 on CUDA to avoid bf16 scaler path issues on some Colab stacks.
+        if cuda_available:
+            compute_dtype = torch.float16
+            bf16 = False
+            fp16 = True
+        else:
+            compute_dtype = torch.float32
+            bf16 = False
+            fp16 = False
 
     model_kwargs = {"device_map": "auto"}
     if args.use_4bit:
@@ -85,8 +117,8 @@ def main():
         ],
     )
 
-    bf16 = supports_bf16
-    fp16 = torch.cuda.is_available() and not bf16
+    if args.precision == "bf16" and not supports_bf16:
+        raise ValueError("Requested --precision bf16, but current GPU does not report bf16 support.")
 
     sft_sig = inspect.signature(SFTConfig.__init__)
     sft_params = set(sft_sig.parameters.keys())
