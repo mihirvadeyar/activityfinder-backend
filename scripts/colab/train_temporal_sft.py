@@ -44,7 +44,7 @@ def parse_args():
         default="auto",
         help=(
             "Mixed precision mode. "
-            "'auto' defaults to fp16 on CUDA for Colab stability; use bf16 only when explicitly desired."
+            "'auto' selects bf16 on bf16-capable GPUs, else fp16 on CUDA."
         ),
     )
     return parser.parse_args()
@@ -77,8 +77,11 @@ def main():
         bf16 = False
         fp16 = cuda_available
     else:
-        # Default to fp16 on CUDA to avoid bf16 scaler path issues on some Colab stacks.
-        if cuda_available:
+        if cuda_available and supports_bf16:
+            compute_dtype = torch.bfloat16
+            bf16 = True
+            fp16 = False
+        elif cuda_available:
             compute_dtype = torch.float16
             bf16 = False
             fp16 = True
@@ -167,6 +170,35 @@ def main():
         trainer_kwargs["tokenizer"] = tokenizer
 
     trainer = SFTTrainer(**trainer_kwargs)
+
+    # Defensive alignment: ensure trainable LoRA params match selected precision,
+    # avoiding GradScaler failures when bf16 params slip into fp16 runs.
+    target_trainable_dtype = torch.float32
+    if bf16:
+        target_trainable_dtype = torch.bfloat16
+    elif fp16:
+        target_trainable_dtype = torch.float16
+
+    trainable_dtype_counts = {}
+    for param in trainer.model.parameters():
+        if not param.requires_grad:
+            continue
+        trainable_dtype_counts[str(param.dtype)] = trainable_dtype_counts.get(str(param.dtype), 0) + 1
+        if param.dtype != target_trainable_dtype:
+            param.data = param.data.to(dtype=target_trainable_dtype)
+
+    print(
+        {
+            "event": "precision_config",
+            "precision_arg": args.precision,
+            "supports_bf16": supports_bf16,
+            "compute_dtype": str(compute_dtype),
+            "trainer_bf16": bf16,
+            "trainer_fp16": fp16,
+            "target_trainable_dtype": str(target_trainable_dtype),
+            "trainable_dtype_counts_before_alignment": trainable_dtype_counts,
+        }
+    )
 
     trainer.train()
     trainer.save_model(args.output_dir)
