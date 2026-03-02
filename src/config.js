@@ -8,6 +8,7 @@ export const config = {
   adminToken: process.env.ADMIN_TOKEN || "devsecret",
   provider: process.env.PROVIDER || "activeCommunities",
   query: {
+    timeZone: process.env.QUERY_TIME_ZONE || process.env.PROVIDER_TIME_ZONE || "America/Vancouver",
     categoryDefaults: {
       sports: {
         categoryName: "Sports",
@@ -33,6 +34,7 @@ export const config = {
     activityDetailsPathPrefix: process.env.PROVIDER_ACTIVITY_DETAILS_PATH_PREFIX || "/rest/onlinecalendar/activity-details",
     requestTimeoutMs: Number(process.env.PROVIDER_REQUEST_TIMEOUT_MS || 30000),
     centerChunkSize: Number(process.env.PROVIDER_CENTER_CHUNK_SIZE || 50),
+    providerTimeZone: process.env.PROVIDER_TIME_ZONE || "America/Vancouver",
   },
   ai: {
     ollama: {

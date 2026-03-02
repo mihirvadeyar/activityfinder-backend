@@ -35,6 +35,7 @@ const summaryLlmClient = createOllamaClient({
 });
 const queryUnderstandingService = createQueryUnderstandingService({
   llmClient: understandingLlmClient,
+  timeZone: config.query.timeZone,
 });
 const repository = createIngestionRepository({
   sql,
@@ -54,6 +55,7 @@ const queryExecutionService = createQueryExecutionService({
   queryUnderstandingService,
   categoryDefaults: config.query.categoryDefaults,
   defaultWindowDays: config.ingestion.windowDays,
+  queryTimeZone: config.query.timeZone,
 });
 const ingestionService = createIngestionService({
   providerClient,
@@ -61,6 +63,7 @@ const ingestionService = createIngestionService({
   provider: config.provider,
   windowDays: config.ingestion.windowDays,
   centerChunkSize: config.ingestion.centerChunkSize,
+  providerTimeZone: config.ingestion.providerTimeZone,
 });
 
 const controllers = {

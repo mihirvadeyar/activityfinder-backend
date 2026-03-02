@@ -97,6 +97,80 @@ function toDateOrNull(value) {
 }
 
 /**
+ * Returns timezone offset milliseconds for a specific instant in a target IANA timezone.
+ *
+ * @param {Date} date
+ * @param {string} timeZone
+ */
+function getTimeZoneOffsetMs(date, timeZone) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = dtf.formatToParts(date);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const asUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  );
+  return asUtc - date.getTime();
+}
+
+/**
+ * Parses provider local timestamp format (YYYY-MM-DD HH:mm:ss) as a specific timezone.
+ *
+ * @param {any} value
+ * @param {string} timeZone
+ */
+function parseProviderLocalDateTime(value, timeZone) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const match = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (!match) return toDateOrNull(text);
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = "00"] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second)
+  ) {
+    return null;
+  }
+
+  const localAsUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+  let utcMs = localAsUtcMs;
+  for (let i = 0; i < 3; i += 1) {
+    const offsetMs = getTimeZoneOffsetMs(new Date(utcMs), timeZone);
+    utcMs = localAsUtcMs - offsetMs;
+  }
+
+  const result = new Date(utcMs);
+  return Number.isNaN(result.getTime()) ? null : result;
+}
+
+/**
  * Extracts category + activity name from provider activity title format.
  *
  * @param {string} rawName
@@ -191,14 +265,20 @@ export function mergeFilterCentreWithDetails(filterCentreRaw, centreDetailsRaw) 
  * @param {object} raw
  * @param {number} fallbackActivityExternalId
  * @param {number} fallbackCentreExternalId
+ * @param {string} [providerTimeZone]
  */
-export function normalizeEvent(raw, fallbackActivityExternalId, fallbackCentreExternalId) {
+export function normalizeEvent(
+  raw,
+  fallbackActivityExternalId,
+  fallbackCentreExternalId,
+  providerTimeZone = "America/Vancouver",
+) {
   const externalId = toBigIntOrNull(raw?.event_item_id);
   const externalActivityId = toBigIntOrNull(raw?.calendar_id) || fallbackActivityExternalId;
   const externalCentreId = toBigIntOrNull(raw?.center_id) || fallbackCentreExternalId;
 
-  const startsAt = toDateOrNull(raw?.start_time);
-  let endsAt = toDateOrNull(raw?.end_time);
+  const startsAt = parseProviderLocalDateTime(raw?.start_time, providerTimeZone);
+  let endsAt = parseProviderLocalDateTime(raw?.end_time, providerTimeZone);
 
   if (!endsAt && startsAt) {
     const durationMinutes = Number(raw?.duration_minutes || 60);

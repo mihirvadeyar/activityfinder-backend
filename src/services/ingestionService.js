@@ -20,6 +20,7 @@ const MS_IN_DAY = 24 * 60 * 60 * 1000;
  * @param {string} deps.provider
  * @param {number} deps.windowDays
  * @param {number} deps.centerChunkSize
+ * @param {string} deps.providerTimeZone
  */
 export function createIngestionService({
   providerClient,
@@ -27,6 +28,7 @@ export function createIngestionService({
   provider,
   windowDays,
   centerChunkSize,
+  providerTimeZone = "America/Vancouver",
 }) {
   /**
    * Logs compact ingestion completion metrics.
@@ -160,7 +162,12 @@ export function createIngestionService({
             const nestedEvents = Array.isArray(centerEvent?.events) ? centerEvent.events : [];
 
             for (const rawEvent of nestedEvents) {
-              const event = normalizeEvent(rawEvent, activity.externalId, fallbackCentreExternalId);
+              const event = normalizeEvent(
+                rawEvent,
+                activity.externalId,
+                fallbackCentreExternalId,
+                providerTimeZone,
+              );
               if (!event) {
                 counters.eventsSkippedInvalid += 1;
                 continue;

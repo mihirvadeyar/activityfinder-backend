@@ -9,8 +9,13 @@ import * as chrono from "chrono-node";
  * @param {Object} deps
  * @param {LlmClient} deps.llmClient
  * @param {number} [deps.understandingTimeoutMs]
+ * @param {string} [deps.timeZone]
  */
-export function createQueryUnderstandingService({ llmClient, understandingTimeoutMs = 20000 }) {
+export function createQueryUnderstandingService({
+  llmClient,
+  understandingTimeoutMs = 20000,
+  timeZone = "America/Vancouver",
+}) {
   if (!llmClient || typeof llmClient.chat !== "function") {
     throw new Error("Missing llmClient implementation with chat()");
   }
@@ -90,7 +95,7 @@ export function createQueryUnderstandingService({ llmClient, understandingTimeou
 
         const parsed = JSON.parse(text);
         const normalizedUnderstanding = normalizeUnderstanding(parsed);
-        return reconcileTemporalUnderstandingWithChrono(queryText, normalizedUnderstanding);
+        return reconcileTemporalUnderstandingWithChrono(queryText, normalizedUnderstanding, timeZone);
       } catch (error) {
         console.warn("[query] understanding_fallback_used", {
           error: error?.message || String(error),
@@ -242,21 +247,35 @@ function buildHeuristicUnderstanding(queryText) {
  *
  * @param {string} queryText
  * @param {Object} understanding
+ * @param {string} timeZone
  */
-function reconcileTemporalUnderstandingWithChrono(queryText, understanding) {
+function reconcileTemporalUnderstandingWithChrono(queryText, understanding, timeZone) {
   const now = new Date();
-  const chronoResult = chrono.parse(String(queryText || ""), now, { forwardDate: true })[0];
+  const chronoReference = buildChronoReferenceDateInZone(now, timeZone);
+  const chronoResult = chrono.parse(String(queryText || ""), chronoReference, { forwardDate: true })[0];
   if (!chronoResult) return understanding;
 
-  const parsedStart = chronoResult.start?.date?.();
+  const parsedStartLocal = chronoResult.start?.date?.();
+  const parsedStart = parsedStartLocal
+    ? localDateInZoneToUtc(parsedStartLocal, timeZone)
+    : null;
   if (!parsedStart || Number.isNaN(parsedStart.getTime())) return understanding;
-  const parsedEndRaw = chronoResult.end?.date?.();
+  const parsedEndRawLocal = chronoResult.end?.date?.();
+  const parsedEndRaw = parsedEndRawLocal && !Number.isNaN(parsedEndRawLocal.getTime())
+    ? localDateInZoneToUtc(parsedEndRawLocal, timeZone)
+    : null;
   const parsedEnd = parsedEndRaw && !Number.isNaN(parsedEndRaw.getTime())
     ? parsedEndRaw
     : new Date(parsedStart.getTime() + 24 * 60 * 60 * 1000);
 
   const parsedDays = Math.max(1, Math.ceil((parsedEnd.getTime() - parsedStart.getTime()) / (24 * 60 * 60 * 1000)));
   const modelDays = estimateModelDurationDays(understanding);
+  const normalizedHint = String(understanding?.time_hint || "").trim().toLowerCase();
+  const relativePattern =
+    /\b(today|tomorrow|tonight|this\s+week|next\s+week|weekend|this\s+month|next\s+month|next\s+\d+\s+days?)\b/;
+  const hasRelativeHint =
+    relativePattern.test(normalizedHint) ||
+    relativePattern.test(String(queryText || "").toLowerCase());
 
   const modelHasTemporalSignal =
     understanding.time_range_type !== "none" ||
@@ -269,6 +288,20 @@ function reconcileTemporalUnderstandingWithChrono(queryText, understanding) {
   const chronoIsSingleDay = !parsedEndRaw || parsedDays === 1;
   const modelIsBroadRelative =
     understanding.time_range_type === "relative" && Number.isFinite(modelDays) && modelDays > 1;
+
+  if (hasRelativeHint) {
+    return {
+      ...understanding,
+      time_hint: chronoResult.text || understanding.time_hint || null,
+      time_range_type: "absolute",
+      start_date_iso: parsedStart.toISOString(),
+      end_date_iso: parsedEnd.toISOString(),
+      duration_value: null,
+      duration_unit: null,
+      duration_modifier: null,
+      confidence: Math.max(Number(understanding.confidence) || 0, 0.8),
+    };
+  }
 
   if (modelHasTemporalSignal && !isInconsistent && !(chronoIsSingleDay && modelIsBroadRelative)) {
     return understanding;
@@ -285,6 +318,95 @@ function reconcileTemporalUnderstandingWithChrono(queryText, understanding) {
     duration_modifier: null,
     confidence: Math.max(Number(understanding.confidence) || 0, 0.8),
   };
+}
+
+/**
+ * Builds a chrono reference Date whose wall-clock fields match the target timezone.
+ *
+ * @param {Date} now
+ * @param {string} timeZone
+ */
+function buildChronoReferenceDateInZone(now, timeZone) {
+  const parts = getTimeZoneParts(now, timeZone);
+  return new Date(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+}
+
+/**
+ * Reinterprets a local Date wall-clock as being in the target timezone.
+ *
+ * @param {Date} localDate
+ * @param {string} timeZone
+ */
+function localDateInZoneToUtc(localDate, timeZone) {
+  const year = localDate.getFullYear();
+  const month = localDate.getMonth() + 1;
+  const day = localDate.getDate();
+  const hour = localDate.getHours();
+  const minute = localDate.getMinutes();
+  const second = localDate.getSeconds();
+
+  const localAsUtcMs = Date.UTC(year, month - 1, day, hour, minute, second);
+  let utcMs = localAsUtcMs;
+  for (let i = 0; i < 3; i += 1) {
+    utcMs = localAsUtcMs - getTimeZoneOffsetMs(new Date(utcMs), timeZone);
+  }
+  return new Date(utcMs);
+}
+
+/**
+ * Returns local date-time parts for a specific timezone.
+ *
+ * @param {Date} date
+ * @param {string} timeZone
+ */
+function getTimeZoneParts(date, timeZone) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = dtf.formatToParts(date);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
+/**
+ * Returns timezone offset milliseconds for a given instant in target timezone.
+ *
+ * @param {Date} date
+ * @param {string} timeZone
+ */
+function getTimeZoneOffsetMs(date, timeZone) {
+  const parts = getTimeZoneParts(date, timeZone);
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+  return asUtc - date.getTime();
 }
 
 /**
