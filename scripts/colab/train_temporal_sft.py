@@ -171,13 +171,12 @@ def main():
 
     trainer = SFTTrainer(**trainer_kwargs)
 
-    # Defensive alignment: ensure trainable LoRA params match selected precision,
-    # avoiding GradScaler failures when bf16 params slip into fp16 runs.
+    # Defensive alignment:
+    # - fp16 training uses GradScaler and should keep trainable params in fp32.
+    # - bf16 training can keep trainable params in bf16.
     target_trainable_dtype = torch.float32
     if bf16:
         target_trainable_dtype = torch.bfloat16
-    elif fp16:
-        target_trainable_dtype = torch.float16
 
     trainable_dtype_counts = {}
     for param in trainer.model.parameters():
